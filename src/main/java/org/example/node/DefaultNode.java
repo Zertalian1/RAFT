@@ -52,7 +52,7 @@ public class DefaultNode implements Node{
     /*машина состояний - тип конечный автомат*/
     public StateMachine stateMachine;
     /**/
-    private ReplicationFailQueueConsumer replicationFailQueueConsumer = new ReplicationFailQueueConsumer();
+    private ReplicationFailQueueConsumer replicationFailQueueConsumer = new ReplicationFailQueueConsumer(this);
     /*а тут вобщем о вся логика*/
     Consensus consensus;
     /*за кого голосует узел*/
