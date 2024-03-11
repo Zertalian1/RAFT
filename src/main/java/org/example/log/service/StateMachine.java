@@ -7,9 +7,11 @@ public interface StateMachine {
 
     LogEntry get(String key);
 
-    String getString(String key);
+    Integer getSuccessIndex(String key);
 
-    void setString(String key, String value);
+    void setSuccessIndex(String key, Integer value);
 
-    void delString(String... key);
+    Integer getCount();
+
+    void setCount(Integer count);
 }

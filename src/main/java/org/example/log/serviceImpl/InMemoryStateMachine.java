@@ -9,6 +9,26 @@ import java.util.Map;
 
 public class InMemoryStateMachine implements StateMachine {
     private final Map<String, LogEntry> stateMachine = new HashMap<>();
+    private final Map<String, Integer> successIndexes = new HashMap<>();
+    private Integer count = 0;
+
+    public Integer getSuccessIndex(String key) {
+        return successIndexes.get(key);
+    }
+
+    public void setSuccessIndex(String key, Integer successIndex) {
+        successIndexes.put(key, successIndex);
+    }
+
+    @Override
+    public Integer getCount() {
+        return count;
+    }
+
+    @Override
+    public void setCount(Integer count) {
+        this.count = count;
+    }
 
     @Override
     public void apply(LogEntry logEntry) {
@@ -23,20 +43,5 @@ public class InMemoryStateMachine implements StateMachine {
     @Override
     public LogEntry get(String key) {
         return stateMachine.get(key);
-    }
-
-    @Override
-    public String getString(String key) {
-        return stateMachine.get(key).toString();
-    }
-
-    @Override
-    public void setString(String key, String value) {
-
-    }
-
-    @Override
-    public void delString(String... key) {
-
     }
 }

@@ -5,7 +5,7 @@ import com.alipay.remoting.rpc.RpcServer;
 import org.example.node.DefaultNode;
 import org.example.node.entity.AentryParam;
 import org.example.node.entity.RvoteParam;
-import org.example.rpc.entity.Command;
+import org.example.rpc.entity.RpcCommand;
 import org.example.rpc.entity.RaftUserProcessor;
 import org.example.rpc.entity.Request;
 import org.example.rpc.entity.Response;
@@ -54,9 +54,9 @@ public class DefaultBaseRpcServer implements BaseRpcServer {
 
     @Override
     public Response<Object> handlerRequest(Request<Object> request) {
-        if (request.getCmd() == Command.R_VOTE.ordinal()) {
+        if (request.getCmd() == RpcCommand.R_VOTE.ordinal()) {
             return new Response<>(node.handlerRequestVote((RvoteParam) request.getBody()));
-        } else if (request.getCmd() == Command.A_ENTRIES.ordinal()) {
+        } else if (request.getCmd() == RpcCommand.A_ENTRIES.ordinal()) {
             return new Response<>(node.handlerAppendEntries((AentryParam) request.getBody()));
         }
         return null;

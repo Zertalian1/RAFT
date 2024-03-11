@@ -60,6 +60,18 @@ public class InMemoryLogModule implements LogModule {
         }
     }
 
+    private LogEntry getPreLog(LogEntry logEntry) {
+        LogEntry entry = read(logEntry.getIndex() - 1);
+
+        if (entry == null) {
+            entry = new LogEntry();
+            entry.setIndex(0L);
+            entry.setTerm(0);
+            entry.setCommand(null);
+        }
+        return entry;
+    }
+
     @Override
     public LogEntry getLast() {
         return log.get(getLastIndex());

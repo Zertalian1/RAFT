@@ -1,6 +1,6 @@
 package org.example.rpc.entity;
 
-public enum Command {
+public enum RpcCommand {
     R_VOTE,
     A_ENTRIES
 }

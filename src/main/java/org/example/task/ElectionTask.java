@@ -1,10 +1,11 @@
 package org.example.task;
 
+import org.example.log.entity.LogEntry;
 import org.example.node.DefaultNode;
 import org.example.node.NodeStatus;
 import org.example.node.entity.RvoteParam;
 import org.example.node.entity.RvoteResult;
-import org.example.rpc.entity.Command;
+import org.example.rpc.entity.RpcCommand;
 import org.example.rpc.entity.RaftRemotingException;
 import org.example.rpc.entity.Request;
 import org.example.rpc.entity.Response;
@@ -12,7 +13,7 @@ import org.example.server.Peer;
 import org.example.thread.RaftThreadPool;
 
 import java.util.ArrayList;
-import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
@@ -20,6 +21,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+
+/*таска, отправляющие запросы на голосования, собирающая их
+* и принимающаа решении о становлении лидером*/
 public class ElectionTask implements Runnable {
 
     private final DefaultNode node;
@@ -42,6 +46,8 @@ public class ElectionTask implements Runnable {
             return;
         }
         node.setNodeStatusIndex(NodeStatus.CANDIDATE);
+        /*Во-первых, чтобы предотвратить разделение голосов, тайм-ауты выборов выбираются случайным
+        образом с фиксированным интервалом (скажем, 150-300 миллисекунд)*/
         node.setPreElectionTime(System.currentTimeMillis() + ThreadLocalRandom.current().nextInt(200)+150);
         node.setVotedFor("localhost:" + node.getPort());
 
@@ -50,11 +56,22 @@ public class ElectionTask implements Runnable {
         for (int i = 0 ; i< node.getPeerSet().getPeers().size(); i++) {
             Peer peer = node.getPeerSet().getPeers().get(i);
             futureArrayList.add(RaftThreadPool.submit(() -> {
+                long lastTerm = 0L;
+                LogEntry last = node.getLogModule().getLast();
+                if (last != null) {
+                    lastTerm = last.getTerm();
+                }
                 RvoteParam param = new RvoteParam();
                 param.setTerm(node.getCurrentTerm());
                 param.setCandidateId(node.getVotedFor());
+                param.setLastLogIndex(node.getLogModule().getLastIndex());
+                param.setLastLogTerm(lastTerm);
                 System.out.println("Голосуем за себя:   "+ param+" терм   "+ param.getTerm());
-                Request<RvoteParam> request = new Request<>(Command.R_VOTE.ordinal(), param, peer.getAddr());
+                Request<RvoteParam> request = new Request<>(
+                        RpcCommand.R_VOTE.ordinal(),
+                        param,
+                        peer.getAddr()
+                );
                 try {
                     return node.getRpcClient().send(request);
                 } catch (RaftRemotingException e) {
@@ -106,5 +123,11 @@ public class ElectionTask implements Runnable {
             node.getPeerSet().setLeader(new Peer("localhost:" + node.getPort()));
         }
         node.setVotedFor("");
+        node.setNextIndexs(new ConcurrentHashMap<>());
+        node.setMatchIndexs(new ConcurrentHashMap<>());
+        for (Peer peer : node.getPeerSet().getPeers()) {
+            node.getNextIndexs().put(peer, node.getLogModule().getLastIndex() + 1);
+            node.getMatchIndexs().put(peer, 0L);
+        }
     }
 }

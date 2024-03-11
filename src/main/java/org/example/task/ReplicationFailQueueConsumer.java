@@ -1,6 +1,5 @@
 package org.example.task;
 
-import lombok.AllArgsConstructor;
 import org.example.node.DefaultNode;
 import org.example.node.NodeStatus;
 import org.example.node.entity.ReplicationFailModel;
@@ -12,12 +11,20 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+/*Штука нужна для этого условия
+* Если подписчик выходит из строя или работает медленно, или сеть теряет пакеты,
+* ведущий будет продолжать повторять AppendEntries RPC (даже после ответа клиента)
+* до тех пор, пока все подписчики окончательно не сохранят все записи журнала.*/
 public class ReplicationFailQueueConsumer implements Runnable {
     private final DefaultNode node;
-    private LinkedBlockingQueue<ReplicationFailModel> replicationFailQueue = new LinkedBlockingQueue<>(2048);
+    private final LinkedBlockingQueue<ReplicationFailModel> replicationFailQueue = new LinkedBlockingQueue<>(2048);
 
     public ReplicationFailQueueConsumer(DefaultNode node) {
         this.node = node;
+    }
+
+    public void addToQueue(ReplicationFailModel model) throws InterruptedException {
+        replicationFailQueue.put(model);
     }
 
     @Override
@@ -42,15 +49,12 @@ public class ReplicationFailQueueConsumer implements Runnable {
     }
 
     private void tryApplyStateMachine(ReplicationFailModel model) {
-
-        String success = node.getStateMachine().getString(model.getSuccessKey());
-        node.stateMachine.setString(model.successKey, String.valueOf(Integer.valueOf(success) + 1));
-
-        String count = stateMachine.getString(model.countKey);
-
-        if (Integer.valueOf(success) >= Integer.valueOf(count) / 2) {
-            stateMachine.apply(model.logEntry);
-            stateMachine.delString(model.countKey, model.successKey);
+        int success = node.getStateMachine().getSuccessIndex(model.getSuccessKey());
+        node.stateMachine.setSuccessIndex(model.getSuccessKey(), success + 1);
+        Integer count = node.getStateMachine().getCount();
+        if (success >= count / 2) {
+            node.stateMachine.apply(model.getLogEntry());
+            node.stateMachine.setCount(null);
         }
     }
 }
