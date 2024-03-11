@@ -12,7 +12,7 @@ import java.io.Serializable;
 @AllArgsConstructor
 public class AentryParam implements Serializable {
     String leaderId;
-    private long term;
+    long term;
     long prevLogIndex;
     long preLogTerm;
     LogEntry[] entries;

@@ -48,7 +48,7 @@ public class ElectionTask implements Runnable {
         node.setNodeStatusIndex(NodeStatus.CANDIDATE);
         /*Во-первых, чтобы предотвратить разделение голосов, тайм-ауты выборов выбираются случайным
         образом с фиксированным интервалом (скажем, 150-300 миллисекунд)*/
-        node.setPreElectionTime(System.currentTimeMillis() + ThreadLocalRandom.current().nextInt(200)+150);
+        node.setPreElectionTime(System.currentTimeMillis() + ThreadLocalRandom.current().nextInt(20000)+150);
         node.setVotedFor("localhost:" + node.getPort());
 
         ArrayList<Future<Response<RvoteResult>>> futureArrayList = new ArrayList<>();

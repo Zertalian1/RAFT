@@ -150,7 +150,7 @@ public class DefaultNode implements Node {
         System.out.println("Принял инфу о жизни лидера:   " + param + " терм   " + param.getTerm());
         return consensus.appendEntries(param);
     }
-
+    @Override
     public synchronized boolean addEntry(String key, String value) {
         if (getNodeStatus() != NodeStatus.LEADER) {
             System.out.println("I'm not a leader");
@@ -170,9 +170,7 @@ public class DefaultNode implements Node {
         }
         CountDownLatch latch = new CountDownLatch(futureList.size());
         List<Boolean> resultList = new CopyOnWriteArrayList<>();
-
         getRPCAppendResult(futureList, latch, resultList);
-
         try {
             latch.await(4000, MILLISECONDS);
         } catch (InterruptedException e) {
@@ -236,7 +234,7 @@ public class DefaultNode implements Node {
                     Long nextIndex = nextIndexs.get(peer);
                     LinkedList<LogEntry> logEntries = new LinkedList<>();
                     /*штука для выполнгения 1-го условия*/
-                    if (entry.getIndex() >= nextIndex) {
+                    if (entry.getIndex() > nextIndex) {
                         for (long i = nextIndex; i <= entry.getIndex(); i++) {
                             LogEntry l = logModule.read(i);
                             if (l != null) {
@@ -258,7 +256,7 @@ public class DefaultNode implements Node {
                             peer.getAddr());
 
                     try {
-                        Response response = getRpcClient().send(request);
+                        Response response = rpcClient.send(request);
                         if (response == null) {
                             return false;
                         }
@@ -288,7 +286,7 @@ public class DefaultNode implements Node {
                             }
                         }
                     } catch (Exception e) {
-
+                        System.out.println(Arrays.toString(e.getStackTrace()));
                         ReplicationFailModel model = ReplicationFailModel.builder()
                                 .callable(this)
                                 .logEntry(entry)
@@ -329,10 +327,12 @@ public class DefaultNode implements Node {
         }
     }
 
+    @Override
     public synchronized String getEntry(String key) {
         LogEntry logEntry = stateMachine.get(key);
+        System.out.println(logEntry);
         if (logEntry != null) {
-            return logEntry.getCommand().getKey();
+            return logEntry.getCommand().getValue();
         }
         return null;
     }

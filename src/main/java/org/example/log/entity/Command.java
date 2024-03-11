@@ -2,12 +2,14 @@ package org.example.log.entity;
 
 import lombok.*;
 
+import java.io.Serializable;
+
 @Getter
 @Setter
 @ToString
 @AllArgsConstructor
 @NoArgsConstructor
-public class Command {
+public class Command implements Serializable {
     private String key;
     private String value;
 }

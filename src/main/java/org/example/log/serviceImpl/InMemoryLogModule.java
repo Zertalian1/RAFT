@@ -34,9 +34,6 @@ public class InMemoryLogModule implements LogModule {
 
     @Override
     public LogEntry read(Long index) {
-        if (log.size() <= index || index<0) {
-            return null;
-        }
         return log.get(index);
     }
 

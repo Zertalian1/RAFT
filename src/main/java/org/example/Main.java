@@ -5,8 +5,9 @@ import org.example.node.Node;
 import org.example.node.NodeConfig;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.Scanner;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Main {
     public static void main(String[] args) {
@@ -26,5 +27,14 @@ public class Main {
                 throwable.printStackTrace();
             }
         }));
+        final AtomicInteger success = new AtomicInteger(0);
+        while (true) {
+            Scanner scanner = new Scanner(System.in);
+            int command = scanner.nextInt();
+            switch (command) {
+                case 0 -> node.addEntry("test", String.valueOf(success.incrementAndGet()));
+                case 1 -> System.out.println(node.getEntry("test"));
+            }
+        }
     }
 }

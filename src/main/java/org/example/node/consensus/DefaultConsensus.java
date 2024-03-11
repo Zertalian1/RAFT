@@ -83,6 +83,9 @@ public class DefaultConsensus implements Consensus{
             в индексе и номер владения, он отклонит новую запись*/
             if (node.getLogModule().getLastIndex() != 0 && param.getPrevLogIndex() != 0) {
                 LogEntry logEntry;
+                System.out.println(node.getLogModule().getLastIndex());
+                System.out.println(param.getPrevLogIndex());
+                System.out.println(node.getLogModule().read(param.getPrevLogIndex()));
                 if ((logEntry = node.getLogModule().read(param.getPrevLogIndex())) != null) {
                     if (logEntry.getTerm() != param.getPreLogTerm()) {
                         return result;

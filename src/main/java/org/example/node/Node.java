@@ -8,4 +8,7 @@ public interface Node {
     void init();
     void destroy();
     RvoteResult handlerRequestVote(RvoteParam param);
+
+    String getEntry(String key);
+    boolean addEntry(String key, String value);
 }
