@@ -151,15 +151,13 @@ public class DefaultNode implements Node {
         return consensus.appendEntries(param);
     }
     @Override
-    public synchronized boolean addEntry(String key, String value) {
+    public synchronized void addEntry(String key, String value) {
         if (getNodeStatus() != NodeStatus.LEADER) {
-            System.out.println("I'm not a leader");
-            return false;
+            System.out.println("I'm not a leader, leader is: " + peerSet.getLeader());
         }
         LogEntry logEntry = new LogEntry();
         logEntry.setCommand(new Command(key, value));
         logEntry.setTerm(getCurrentTerm());
-
         logModule.write(logEntry);
         final AtomicInteger success = new AtomicInteger(0);
 
@@ -198,16 +196,13 @@ public class DefaultNode implements Node {
             }
         }
 
-        if (success.get() >= (peerSet.getPeers().size() / 2)) {
+        if (success.get() >= peerSet.getPeers().size() / 2.0) {
             commitIndex = logEntry.getIndex();
             getStateMachine().apply(logEntry);
             lastApplied = commitIndex;
-            return true;
         } else {
-            logModule.removeOnStartIndex(logEntry.getIndex());
-            // TODO ЫЫЫ АА, а что делать то - повторять?
+            stateMachine.setSuccessIndex(logEntry.getIndex().toString()+logEntry.getTerm(), success.get());
             System.out.println("The limit of half copies has not been reached");
-            return false;
         }
     }
 
@@ -289,9 +284,9 @@ public class DefaultNode implements Node {
                         System.out.println(Arrays.toString(e.getStackTrace()));
                         ReplicationFailModel model = ReplicationFailModel.builder()
                                 .callable(this)
+                                .successKey(entry.getIndex().toString()+entry.getTerm())
                                 .logEntry(entry)
                                 .peer(peer)
-                                .offerTime(System.currentTimeMillis())
                                 .build();
                         replicationFailQueueConsumer.addToQueue(model);
                         return false;
@@ -318,7 +313,6 @@ public class DefaultNode implements Node {
                 try {
                     resultList.add(future.get(3000, MILLISECONDS));
                 } catch (CancellationException | TimeoutException | ExecutionException | InterruptedException e) {
-                    e.printStackTrace();
                     resultList.add(false);
                 } finally {
                     latch.countDown();

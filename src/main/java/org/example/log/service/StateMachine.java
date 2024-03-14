@@ -8,10 +8,7 @@ public interface StateMachine {
     LogEntry get(String key);
 
     Integer getSuccessIndex(String key);
+    void  deleteSuccessIndex(String key);
 
     void setSuccessIndex(String key, Integer value);
-
-    Integer getCount();
-
-    void setCount(Integer count);
 }

@@ -10,24 +10,18 @@ import java.util.Map;
 public class InMemoryStateMachine implements StateMachine {
     private final Map<String, LogEntry> stateMachine = new HashMap<>();
     private final Map<String, Integer> successIndexes = new HashMap<>();
-    private Integer count = 0;
 
     public Integer getSuccessIndex(String key) {
         return successIndexes.get(key);
     }
 
+    @Override
+    public void  deleteSuccessIndex(String key) {
+        successIndexes.remove(key);
+    }
+
     public void setSuccessIndex(String key, Integer successIndex) {
         successIndexes.put(key, successIndex);
-    }
-
-    @Override
-    public Integer getCount() {
-        return count;
-    }
-
-    @Override
-    public void setCount(Integer count) {
-        this.count = count;
     }
 
     @Override

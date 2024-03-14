@@ -23,8 +23,7 @@ public class Main {
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             try {
                 node.destroy();
-            } catch (Throwable throwable) {
-                throwable.printStackTrace();
+            } catch (Throwable ignored) {
             }
         }));
         final AtomicInteger success = new AtomicInteger(0);
@@ -32,7 +31,12 @@ public class Main {
             Scanner scanner = new Scanner(System.in);
             int command = scanner.nextInt();
             switch (command) {
-                case 0 -> node.addEntry("test", String.valueOf(success.incrementAndGet()));
+                case 0 -> {
+                    if (node.getEntry("test") != null) {
+                        success.set(Integer.parseInt(node.getEntry("test")));
+                    }
+                    node.addEntry("test", String.valueOf(success.incrementAndGet()));
+                }
                 case 1 -> System.out.println(node.getEntry("test"));
             }
         }

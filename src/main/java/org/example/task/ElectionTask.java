@@ -118,7 +118,8 @@ public class ElectionTask implements Runnable {
         if (node.getNodeStatus() == NodeStatus.FOLLOWER) {
             return;
         }
-        if (success >= node.getPeerSet().getPeers().size() / 2) {
+
+        if (success >= node.getPeerSet().getPeers().size() / 2.0) {
             node.setNodeStatusIndex(NodeStatus.LEADER);
             node.getPeerSet().setLeader(new Peer("localhost:" + node.getPort()));
         }

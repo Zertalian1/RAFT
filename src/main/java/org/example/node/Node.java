@@ -10,5 +10,5 @@ public interface Node {
     RvoteResult handlerRequestVote(RvoteParam param);
 
     String getEntry(String key);
-    boolean addEntry(String key, String value);
+    void addEntry(String key, String value);
 }

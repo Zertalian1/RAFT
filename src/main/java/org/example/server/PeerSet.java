@@ -16,8 +16,11 @@ import java.util.List;
 public class PeerSet implements Serializable {
     private final List<Peer> peers = new ArrayList<>();
     private volatile Peer leader;
-
     public void addPeer(Peer peer) {
         peers.add(peer);
+    }
+
+    public int size() {
+        return peers.size()+1;
     }
 }

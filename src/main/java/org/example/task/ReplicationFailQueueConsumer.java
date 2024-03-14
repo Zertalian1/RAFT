@@ -36,12 +36,16 @@ public class ReplicationFailQueueConsumer implements Runnable {
                     replicationFailQueue.clear();
                     continue;
                 }
-
+                if (model.getCountKey() > 5) {
+                    continue;
+                }
                 Callable callable = model.getCallable();
                 Future<Boolean> future = RaftThreadPool.submit(callable);
                 Boolean r = future.get(3000, MILLISECONDS);
                 if (r) {
                     tryApplyStateMachine(model);
+                } else {
+                    model.setCountKey(model.getCountKey()+1);
                 }
             } catch (Exception ignore) {
             }
@@ -49,12 +53,15 @@ public class ReplicationFailQueueConsumer implements Runnable {
     }
 
     private void tryApplyStateMachine(ReplicationFailModel model) {
-        int success = node.getStateMachine().getSuccessIndex(model.getSuccessKey());
+        Integer success = node.getStateMachine().getSuccessIndex(model.getSuccessKey());
+        if (success == null) {
+            return;
+        }
         node.stateMachine.setSuccessIndex(model.getSuccessKey(), success + 1);
-        Integer count = node.getStateMachine().getCount();
-        if (success >= count / 2) {
+        int count = node.getPeerSet().size();
+        if (success < count / 2.0 && success+1 >= count / 2.0) {
             node.stateMachine.apply(model.getLogEntry());
-            node.stateMachine.setCount(null);
+            node.stateMachine.deleteSuccessIndex(model.getSuccessKey());
         }
     }
 }
