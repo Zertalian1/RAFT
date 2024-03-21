@@ -1,8 +1,6 @@
 package org.example;
 
-import org.example.node.DefaultNode;
-import org.example.node.Node;
-import org.example.node.NodeConfig;
+import org.example.node.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -17,8 +15,8 @@ public class Main {
             peers.add("localhost:"+args[i]);
         }
         NodeConfig config = new NodeConfig(Integer.parseInt(args[0]), peers);
-
-        Node node = new DefaultNode(config);
+        ReplDict consumer = new ReplDict();
+        Node node = new DefaultNode(config, consumer);
         node.init();
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             try {
@@ -32,12 +30,12 @@ public class Main {
             int command = scanner.nextInt();
             switch (command) {
                 case 0 -> {
-                    if (node.getEntry("test") != null) {
-                        success.set(Integer.parseInt(node.getEntry("test")));
+                    if (consumer.get("test") != null) {
+                        success.set(Integer.parseInt(consumer.get("test")));
                     }
-                    node.addEntry("test", String.valueOf(success.incrementAndGet()));
+                    consumer.set("test", String.valueOf(success.incrementAndGet()));
                 }
-                case 1 -> System.out.println(node.getEntry("test"));
+                case 1 -> System.out.println(consumer.get("test"));
             }
         }
     }

@@ -7,6 +7,10 @@ public interface LogModule {
 
     LogEntry read(Long index);
 
+    void applyToStateMachine(Long index);
+
+    String[] get(String command, String name);
+
     void removeOnStartIndex(Long startIndex);
 
     LogEntry getLast();

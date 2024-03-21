@@ -1,10 +1,14 @@
 package org.example.task;
 
+import org.example.log.service.LogModule;
 import org.example.node.DefaultNode;
 import org.example.node.NodeStatus;
 import org.example.node.entity.ReplicationFailModel;
+import org.example.server.PeerSet;
 import org.example.thread.RaftThreadPool;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -18,9 +22,14 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class ReplicationFailQueueConsumer implements Runnable {
     private final DefaultNode node;
     private final LinkedBlockingQueue<ReplicationFailModel> replicationFailQueue = new LinkedBlockingQueue<>(2048);
+    private final Map<String, Integer> successIndexes = new HashMap<>();
+    public LogModule logModule;
+    private final PeerSet peerSet;
 
-    public ReplicationFailQueueConsumer(DefaultNode node) {
+    public ReplicationFailQueueConsumer(DefaultNode node, LogModule logModule, PeerSet peerSet) {
         this.node = node;
+        this.logModule = logModule;
+        this.peerSet = peerSet;
     }
 
     public void addToQueue(ReplicationFailModel model) throws InterruptedException {
@@ -52,16 +61,20 @@ public class ReplicationFailQueueConsumer implements Runnable {
         }
     }
 
+    public void setSuccessIndex(String key, int value) {
+        successIndexes.put(key, value);
+    }
+
     private void tryApplyStateMachine(ReplicationFailModel model) {
-        Integer success = node.getStateMachine().getSuccessIndex(model.getSuccessKey());
+        Integer success = successIndexes.get(model.getSuccessKey());
         if (success == null) {
             return;
         }
-        node.stateMachine.setSuccessIndex(model.getSuccessKey(), success + 1);
-        int count = node.getPeerSet().size();
+        successIndexes.put(model.getSuccessKey(), success + 1);
+        int count = peerSet.size();
         if (success < count / 2.0 && success+1 >= count / 2.0) {
-            node.stateMachine.apply(model.getLogEntry());
-            node.stateMachine.deleteSuccessIndex(model.getSuccessKey());
+            logModule.applyToStateMachine(model.getLogEntry().getIndex());
+            successIndexes.remove(model.getSuccessKey());
         }
     }
 }

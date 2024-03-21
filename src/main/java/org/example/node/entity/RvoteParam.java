@@ -10,8 +10,8 @@ import java.io.Serializable;
 @NoArgsConstructor
 @AllArgsConstructor
 public class RvoteParam implements Serializable {
-    private String candidateId;
-    private long term;
+    String candidateId;
+    long term;
     long lastLogIndex;
     long lastLogTerm;
 }

@@ -15,7 +15,6 @@ public class LogEntry implements Serializable, Comparable<LogEntry> {
     private long term;
     private Command command;
 
-
     @Override
     public boolean equals(Object o) {
         if (this == o) {

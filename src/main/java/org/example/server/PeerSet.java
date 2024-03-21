@@ -16,6 +16,7 @@ import java.util.List;
 public class PeerSet implements Serializable {
     private final List<Peer> peers = new ArrayList<>();
     private volatile Peer leader;
+    private int port;
     public void addPeer(Peer peer) {
         peers.add(peer);
     }

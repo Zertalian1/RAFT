@@ -12,6 +12,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class InMemoryLogModule implements LogModule {
     private final Map<Long, LogEntry> log = new HashMap<>();
     private Long lastIndex = 0L;
+    private final StateMachineService stateMachineService = new StateMachineService();
     ReentrantLock lock = new ReentrantLock();
 
     @Override
@@ -38,6 +39,18 @@ public class InMemoryLogModule implements LogModule {
     }
 
     @Override
+    public void applyToStateMachine(Long index) {
+        LogEntry entry = log.get(index);
+        stateMachineService.applyStateMachine(entry.getCommand().getName(), entry.getCommand().getParams());
+    }
+
+    @Override
+    public String[] get(String command, String name) {
+        return stateMachineService.get(command, name);
+    }
+
+
+    @Override
     public void removeOnStartIndex(Long startIndex) {
         boolean success = false;
         int count = 0;
@@ -55,18 +68,6 @@ public class InMemoryLogModule implements LogModule {
             }
             lock.unlock();
         }
-    }
-
-    private LogEntry getPreLog(LogEntry logEntry) {
-        LogEntry entry = read(logEntry.getIndex() - 1);
-
-        if (entry == null) {
-            entry = new LogEntry();
-            entry.setIndex(0L);
-            entry.setTerm(0);
-            entry.setCommand(null);
-        }
-        return entry;
     }
 
     @Override
