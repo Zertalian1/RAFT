@@ -9,11 +9,16 @@ public interface LogModule {
 
     void applyToStateMachine(Long index);
 
-    String[] get(String command, String name);
+    String[] get(String name);
+
+    boolean lockOperation(String name);
+    void unlockOperation(String name);
 
     void removeOnStartIndex(Long startIndex);
 
     LogEntry getLast();
 
     Long getLastIndex();
+
+    LogEntry getPreLog(LogEntry logEntry);
 }

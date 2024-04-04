@@ -15,10 +15,10 @@ import org.example.server.Peer;
 import org.example.server.PeerSet;
 import org.example.task.BaseHeartBeatTask;
 import org.example.task.ElectionTask;
-import org.example.task.ReplicationFailQueueConsumer;
 import org.example.thread.RaftThreadPool;
 
 import java.util.Map;
+import java.util.concurrent.Semaphore;
 
 @Getter
 @Setter
@@ -33,8 +33,6 @@ public class DefaultNode implements Node {
     volatile long currentTerm = 0;
     /*журнал логов*/
     LogModule logModule;
-    /* Штука ответственная за то, чтобы спамить чообщениями о новой записи неответиыших подписчиков */
-    private ReplicationFailQueueConsumer replicationFailQueueConsumer;
     volatile long lastApplied = 0;
     /* Значение индекса самой большой известной записи журнала, которая была отправлена */
     volatile long commitIndex;
@@ -48,6 +46,19 @@ public class DefaultNode implements Node {
     Map<Peer, Long> nextIndexs;
     /*индекс последней сохранённой записи для каждого узла*/
     Map<Peer, Long> matchIndexs;
+    Semaphore mutex = new Semaphore(1);
+
+    public void lokMutex() {
+        try {
+            mutex.acquire();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void unlockMutex() {
+        mutex.release();
+    }
 
     public void setNodeStatusIndex(NodeStatus nodeStatusIndex) {
         this.nodeStatusIndex = nodeStatusIndex.ordinal();
@@ -74,15 +85,14 @@ public class DefaultNode implements Node {
         }
         peerSet.setPort(config.selfPort);
         logModule = new InMemoryLogModule();
-        replicationFailQueueConsumer = new ReplicationFailQueueConsumer(this, logModule, peerSet);
         BaseRpcClient rpcClient = new DefaultBaseRpcClient();
         this.electionTask = new ElectionTask(this, rpcClient, peerSet, logModule);
-        this.baseHeartBeatTask = new BaseHeartBeatTask(this, rpcClient, peerSet);
+        this.baseHeartBeatTask = new BaseHeartBeatTask(this, rpcClient, peerSet, logModule);
         Consensus consensus = new DefaultConsensus(this, electionTask, logModule, peerSet);
         rpcServer = new DefaultBaseRpcServer(consensus, config.selfPort);
         consumer.setLogModule(logModule);
         consumer.setReplicationService(new ReplicationService(
-                this, logModule, peerSet, rpcClient, replicationFailQueueConsumer
+                this, logModule, peerSet, rpcClient
         ));
     }
 
@@ -98,7 +108,6 @@ public class DefaultNode implements Node {
             rpcServer.start();
             RaftThreadPool.scheduleWithFixedDelay(baseHeartBeatTask, 500);
             RaftThreadPool.scheduleAtFixedRate(electionTask, 6000, 500);
-            RaftThreadPool.execute(replicationFailQueueConsumer);
             LogEntry logEntry = logModule.getLast();
             if (logEntry != null) {
                 currentTerm = logEntry.getTerm();

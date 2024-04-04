@@ -1,24 +1,25 @@
 package org.example.log.serviceImpl;
 
-import org.example.log.service.StateMachine;
-
-import java.util.HashMap;
-import java.util.Map;
-
 public class StateMachineService {
-    private final Map<String, StateMachine> stateMachineList = new HashMap<>();
+    InMemoryKVStateMachine machine = new InMemoryKVStateMachine();
 
     public StateMachineService() {
-        stateMachineList.put("KVStorage", new InMemoryKVStateMachine());
     }
 
     public void applyStateMachine(String command, String[] params) {
-        StateMachine stateMachine = stateMachineList.get(command);
-        stateMachine.apply(params);
+        switch (command) {
+            case "set" -> machine.set(params);
+        }
     }
 
-    public String[] get(String command, String name) {
-        StateMachine stateMachine = stateMachineList.get(command);
-        return stateMachine.get(name);
+    boolean lockOperation(String name) {
+        return machine.lock(name);
+    }
+    void unlockOperation(String name) {
+        machine.unlock(name);
+    }
+
+    public String[] get(String name) {
+        return machine.get(name);
     }
 }

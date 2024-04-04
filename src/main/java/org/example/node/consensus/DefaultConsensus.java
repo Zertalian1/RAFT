@@ -55,9 +55,11 @@ public class DefaultConsensus implements Consensus {
                         return builder.term(node.getCurrentTerm()).voteGranted(false).build();
                     }
                 }
+                node.lokMutex();
                 node.setNodeStatusIndex(NodeStatus.FOLLOWER);
                 peerSet.setLeader(new Peer(param.getCandidateId()));
                 node.setCurrentTerm(param.getTerm());
+                node.unlockMutex();
                 return builder.term(node.getCurrentTerm()).voteGranted(true).build();
             }
             return builder.term(node.getCurrentTerm()).voteGranted(false).build();
@@ -70,56 +72,66 @@ public class DefaultConsensus implements Consensus {
     public AentryResult appendEntries(AentryParam param) {
         AentryResult result = AentryResult.fail();
         try {
+
             if (!appendLock.tryLock()) {
                 return result;
             }
+
+            node.lokMutex();
+            System.out.println(param);
             result.setTerm(node.getCurrentTerm());
+
+            //1
             if (param.getTerm() < node.getCurrentTerm()) {
+                node.unlockMutex();
                 return result;
             }
             electionTask.setPreElectionTime(System.currentTimeMillis());
             peerSet.setLeader(new Peer(param.getLeaderId()));
-            if (param.getTerm() >= node.getCurrentTerm()) {
+            if (param.getTerm() > node.getCurrentTerm()) {
                 node.setNodeStatusIndex(NodeStatus.FOLLOWER);
             }
             node.setCurrentTerm(param.getTerm());
-            if (param.getEntries() == null || param.getEntries().length == 0) {
+
+            if (param.getLeaderCommit() > node.getLastApplied() && logModule.read(node.getLastApplied()+1) != null) {
+                long apply;
+                do {
+                    apply = node.getLastApplied() + 1;
+                    logModule.applyToStateMachine(apply);
+                    node.setLastApplied(apply);
+                } while (apply<logModule.getLastIndex());
+                node.unlockMutex();
                 return new AentryResult(node.getCurrentTerm(), true);
             }
 
             /*Если подписчик не найдет в своем журнале запись, содержащую ту же позицию
             в индексе и номер владения, он отклонит новую запись*/
-            if (logModule.getLastIndex() != 0 && param.getPrevLogIndex() != 0) {
-                LogEntry logEntry;
-                System.out.println(logModule.getLastIndex());
-                System.out.println(param.getPrevLogIndex());
-                System.out.println(logModule.read(param.getPrevLogIndex()));
-                if ((logEntry = logModule.read(param.getPrevLogIndex())) != null) {
-                    if (logEntry.getTerm() != param.getPreLogTerm()) {
-                        return result;
-                    }
-                } else {
-                    return result;
-                }
-
-            }
-
             /*В алгоритме Raft лидер устраняет несоответствия, заставляя подписчика
             копировать свой журнал. Это означает, что записи журнала, конфликтующие
             с лидером, будут перезаписаны записями журнала лидера.*/
-            LogEntry existLog = logModule.read(param.getPrevLogIndex() + 1);
-            if (existLog != null && existLog.getTerm() != param.getEntries()[0].getTerm()) {
-                // короче всё удаляем
-                logModule.removeOnStartIndex(param.getPrevLogIndex() + 1);
-            } else if (existLog != null) {
-                result.setSuccess(true);
-                return result;
+            if (logModule.getLastIndex() != 0 || param.getPrevLogIndex() != 0) {
+                LogEntry logEntry;
+                if ((logEntry = logModule.read(param.getPrevLogIndex())) != null) {
+                    //2
+                    if (logEntry.getTerm() != param.getPreLogTerm()) {
+                        logModule.removeOnStartIndex(param.getPrevLogIndex() + 1);
+                        node.unlockMutex();
+                        return result;
+                    }
+                } else if(param.getPrevLogIndex() != 0){
+                    node.unlockMutex();
+                    return result;
+                }
             }
 
-            // применяем операцию к конечному автомату и записываем в журнал логов
+            /*if (param.getLeaderCommit() > node.getLastApplied() && param.getEntries().length == 0) {
+                node.unlockMutex();
+                return result;
+            }*/
+
+            // записываем операцию в журнал логов
             for (LogEntry entry : param.getEntries()) {
                 logModule.write(entry);
-                logModule.applyToStateMachine(entry.getIndex());
                 result.setSuccess(true);
             }
 
@@ -127,10 +139,10 @@ public class DefaultConsensus implements Consensus {
             if (param.getLeaderCommit() > node.getCommitIndex()) {
                 int commitIndex = (int) Math.min(param.getLeaderCommit(), logModule.getLastIndex());
                 node.setCommitIndex(commitIndex);
-                node.setLastApplied(commitIndex);
             }
             result.setTerm(node.getCurrentTerm());
             result.setSuccess(true);
+            node.unlockMutex();
             return result;
         } finally {
             appendLock.unlock();

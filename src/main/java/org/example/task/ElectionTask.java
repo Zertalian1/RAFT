@@ -54,11 +54,15 @@ public class ElectionTask implements Runnable {
         if (node.getNodeStatus() == NodeStatus.LEADER) {
             return;
         }
-
+        node.lokMutex();
+        if (node.getNodeStatus() == NodeStatus.LEADER) {
+            node.unlockMutex();
+            return;
+        }
         long current = System.currentTimeMillis();
-
         electionTime += ThreadLocalRandom.current().nextInt(50);
         if (current - preElectionTime < electionTime) {
+            node.unlockMutex();
             return;
         }
         node.setNodeStatusIndex(NodeStatus.CANDIDATE);
@@ -68,6 +72,7 @@ public class ElectionTask implements Runnable {
         node.setVotedFor("localhost:" + peerSet.getPort());
 
         ArrayList<Future<Response<RvoteResult>>> futureArrayList = new ArrayList<>();
+
         node.newTerm();
         for (int i = 0 ; i< peerSet.getPeers().size(); i++) {
             Peer peer = peerSet.getPeers().get(i);
@@ -95,6 +100,7 @@ public class ElectionTask implements Runnable {
                 }
             }));
         }
+        node.unlockMutex();
 
         AtomicInteger success2 = new AtomicInteger(0);
         CountDownLatch latch = new CountDownLatch(futureArrayList.size());
@@ -124,27 +130,28 @@ public class ElectionTask implements Runnable {
                 }
             });
         }
-
         try {
             latch.await(3500, MILLISECONDS);
         } catch (InterruptedException ignored) {
         }
-
         int success = success2.get();
-        if (node.getNodeStatus() == NodeStatus.FOLLOWER) {
-            return;
-        }
 
-        if (success >= peerSet.getPeers().size() / 2.0) {
-            node.setNodeStatusIndex(NodeStatus.LEADER);
-            peerSet.setLeader(new Peer("localhost:" + peerSet.getPort()));
+        node.lokMutex();
+        if (node.getNodeStatus() == NodeStatus.CANDIDATE) {
+
+            //System.out.println(success);
+            if (success >= peerSet.getPeers().size() / 2.0) {
+                node.setNodeStatusIndex(NodeStatus.LEADER);
+                peerSet.setLeader(new Peer("localhost:" + peerSet.getPort()));
+            }
+            node.setVotedFor("");
+            node.setNextIndexs(new ConcurrentHashMap<>());
+            node.setMatchIndexs(new ConcurrentHashMap<>());
+            for (Peer peer : peerSet.getPeers()) {
+                node.getNextIndexs().put(peer, logModule.getLastIndex() + 1);
+                node.getMatchIndexs().put(peer, 0L);
+            }
         }
-        node.setVotedFor("");
-        node.setNextIndexs(new ConcurrentHashMap<>());
-        node.setMatchIndexs(new ConcurrentHashMap<>());
-        for (Peer peer : peerSet.getPeers()) {
-            node.getNextIndexs().put(peer, logModule.getLastIndex() + 1);
-            node.getMatchIndexs().put(peer, 0L);
-        }
+        node.unlockMutex();
     }
 }

@@ -45,8 +45,18 @@ public class InMemoryLogModule implements LogModule {
     }
 
     @Override
-    public String[] get(String command, String name) {
-        return stateMachineService.get(command, name);
+    public String[] get(String name) {
+        return stateMachineService.get(name);
+    }
+
+    @Override
+    public boolean lockOperation(String name) {
+        return stateMachineService.lockOperation(name);
+    }
+
+    @Override
+    public void unlockOperation(String name) {
+        stateMachineService.unlockOperation(name);
     }
 
 
@@ -82,5 +92,15 @@ public class InMemoryLogModule implements LogModule {
 
     private void updateLastIndex(Long index) {
         lastIndex = index;
+    }
+
+    @Override
+    public LogEntry getPreLog(LogEntry logEntry) {
+        LogEntry entry = read(logEntry.getIndex() - 1);
+
+        if (entry == null) {
+            entry = new LogEntry(0L, 0, null);
+        }
+        return entry;
     }
 }

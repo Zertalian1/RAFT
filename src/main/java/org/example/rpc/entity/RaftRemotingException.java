@@ -1,6 +1,6 @@
 package org.example.rpc.entity;
 
-public class RaftRemotingException extends RuntimeException {
+public class RaftRemotingException extends Exception {
 
     public RaftRemotingException() {
         super();

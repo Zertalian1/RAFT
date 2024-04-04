@@ -4,14 +4,12 @@ import org.example.log.entity.LogEntry;
 import org.example.log.service.LogModule;
 import org.example.node.entity.AentryParam;
 import org.example.node.entity.AentryResult;
-import org.example.node.entity.ReplicationFailModel;
 import org.example.rpc.BaseRpcClient;
 import org.example.rpc.entity.Request;
 import org.example.rpc.entity.Response;
 import org.example.rpc.entity.RpcCommand;
 import org.example.server.Peer;
 import org.example.server.PeerSet;
-import org.example.task.ReplicationFailQueueConsumer;
 import org.example.thread.RaftThreadPool;
 
 import java.util.*;
@@ -25,25 +23,28 @@ public class ReplicationService {
     private final LogModule logModule;
     private final PeerSet peerSet;
     private final BaseRpcClient rpcClient;
-    private final ReplicationFailQueueConsumer replicationFailQueueConsumer;
 
     public ReplicationService(
             DefaultNode node,
             LogModule logModule,
             PeerSet peerSet,
-            BaseRpcClient rpcClient,
-            ReplicationFailQueueConsumer replicationFailQueueConsumer
+            BaseRpcClient rpcClient
     ) {
         this.node = node;
         this.logModule = logModule;
         this.peerSet = peerSet;
         this.rpcClient = rpcClient;
-        this.replicationFailQueueConsumer = replicationFailQueueConsumer;
     }
 
     public synchronized void addEntry(LogEntry logEntry) {
         if (node.getNodeStatus() != NodeStatus.LEADER) {
             System.out.println("I'm not a leader, leader is: " + peerSet.getLeader());
+            return;
+        }
+        node.lokMutex();
+        if (node.getNodeStatus() != NodeStatus.LEADER) {
+            System.out.println("I'm not a leader, leader is: " + peerSet.getLeader());
+            node.unlockMutex();
             return;
         }
         logEntry.setTerm(node.getCurrentTerm());
@@ -55,13 +56,13 @@ public class ReplicationService {
         for (Peer peer : peerSet.getPeers()) {
             futureList.add(replication(peer, logEntry));
         }
+        node.unlockMutex();
         CountDownLatch latch = new CountDownLatch(futureList.size());
         List<Boolean> resultList = new CopyOnWriteArrayList<>();
         getRPCAppendResult(futureList, latch, resultList);
         try {
             latch.await(4000, MILLISECONDS);
         } catch (InterruptedException e) {
-            e.printStackTrace();
         }
 
         for (Boolean aBoolean : resultList) {
@@ -69,6 +70,7 @@ public class ReplicationService {
                 success.incrementAndGet();
             }
         }
+        node.lokMutex();
         /*Если существует N, такое, что N> commitIndex, most matchIndex[I]≥N и log[N].
         Term == currentTerm: установить commitIndex = N*/
         List<Long> matchIndexList = new ArrayList<>(node.getMatchIndexs().values());
@@ -90,9 +92,10 @@ public class ReplicationService {
             logModule.applyToStateMachine(logEntry.getIndex());
             node.setLastApplied(node.getCommitIndex());
         } else {
-            replicationFailQueueConsumer.setSuccessIndex(logEntry.getIndex().toString()+logEntry.getTerm(), success.get());
+            logModule.removeOnStartIndex(logEntry.getIndex());
             System.out.println("The limit of half copies has not been reached");
         }
+        node.unlockMutex();
     }
 
     /*гемор, эта штука должна
@@ -119,6 +122,7 @@ public class ReplicationService {
                     LinkedList<LogEntry> logEntries = new LinkedList<>();
                     /*штука для выполнгения 1-го условия*/
                     if (entry.getIndex() > nextIndex) {
+
                         for (long i = nextIndex; i <= entry.getIndex(); i++) {
                             LogEntry l = logModule.read(i);
                             if (l != null) {
@@ -129,7 +133,7 @@ public class ReplicationService {
                         logEntries.add(entry);
                     }
 
-                    LogEntry preLog = getPreLog(logEntries.getFirst());
+                    LogEntry preLog = logModule.getPreLog(logEntries.getFirst());
                     aentryParam.setPreLogTerm(preLog.getTerm());
                     aentryParam.setPrevLogIndex(preLog.getIndex());
 
@@ -146,7 +150,7 @@ public class ReplicationService {
                         }
                         AentryResult result = (AentryResult) response.getResult();
                         if (result != null && result.isSuccess()) {
-                            System.out.printf("append follower entry success , follower=[{%s}] \n", peer);
+                            System.out.printf("append follower entry success , follower=[{%s}], next=[{%d}] \n", peer.getAddr(), entry.getIndex() + 1);
                             node.getNextIndexs().put(peer, entry.getIndex() + 1);
                             node.getMatchIndexs().put(peer, entry.getIndex());
                             return true;
@@ -170,14 +174,6 @@ public class ReplicationService {
                             }
                         }
                     } catch (Exception e) {
-                        System.out.println(Arrays.toString(e.getStackTrace()));
-                        ReplicationFailModel model = ReplicationFailModel.builder()
-                                .callable(this)
-                                .successKey(entry.getIndex().toString()+entry.getTerm())
-                                .logEntry(entry)
-                                .peer(peer)
-                                .build();
-                        replicationFailQueueConsumer.addToQueue(model);
                         return false;
                     }
                     end = System.currentTimeMillis();
@@ -185,15 +181,6 @@ public class ReplicationService {
                 return false;
             }
         });
-    }
-
-    private LogEntry getPreLog(LogEntry logEntry) {
-        LogEntry entry = logModule.read(logEntry.getIndex() - 1);
-
-        if (entry == null) {
-            entry = new LogEntry(0L, 0, null);
-        }
-        return entry;
     }
 
     private void getRPCAppendResult(List<Future<Boolean>> futureList, CountDownLatch latch, List<Boolean> resultList) {

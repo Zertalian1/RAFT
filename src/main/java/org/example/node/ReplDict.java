@@ -9,12 +9,12 @@ public class ReplDict extends SyncObjConsumer{
 
     public void set(String key, String value) {
         LogEntry logEntry = new LogEntry();
-        logEntry.setCommand(new Command("KVStorage", new String[] {key, value}));
+        logEntry.setCommand(new Command("set", new String[] {key, value}));
         replicationService.addEntry(logEntry);
     }
 
     public String get(String key) {
-        String[] value = logModule.get("KVStorage", key);
+        String[] value = logModule.get(key);
         if (value != null) {
             return value[0];
         }

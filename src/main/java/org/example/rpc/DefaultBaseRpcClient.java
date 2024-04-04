@@ -16,12 +16,12 @@ public class DefaultBaseRpcClient implements BaseRpcClient {
 
 
     @Override
-    public Response send(Request request) {
+    public Response send(Request request) throws RaftRemotingException {
         return send(request, 200000);
     }
 
     @Override
-    public Response send(Request request, int timeout) {
+    public Response send(Request request, int timeout) throws RaftRemotingException {
         Response result = null;
         try {
             result = (Response) client.invokeSync(request.getUrl(), request, timeout);
@@ -29,7 +29,7 @@ public class DefaultBaseRpcClient implements BaseRpcClient {
             /*если узел не работает, то он не сможет установить связь*/
             throw new RaftRemotingException();
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            //e.printStackTrace();
         }
         return result;
     }
