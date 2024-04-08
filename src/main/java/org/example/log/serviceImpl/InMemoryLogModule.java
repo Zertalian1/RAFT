@@ -45,18 +45,13 @@ public class InMemoryLogModule implements LogModule {
     }
 
     @Override
+    public Map<String, String[]> getAll() {
+        return stateMachineService.getAll();
+    }
+
+    @Override
     public String[] get(String name) {
         return stateMachineService.get(name);
-    }
-
-    @Override
-    public boolean lockOperation(String name) {
-        return stateMachineService.lockOperation(name);
-    }
-
-    @Override
-    public void unlockOperation(String name) {
-        stateMachineService.unlockOperation(name);
     }
 
 

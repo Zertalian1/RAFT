@@ -10,7 +10,11 @@ public class ReplDict extends SyncObjConsumer{
     public void set(String key, String value) {
         LogEntry logEntry = new LogEntry();
         logEntry.setCommand(new Command("set", new String[] {key, value}));
-        replicationService.addEntry(logEntry);
+        try {
+            replicationService.addEntry(logEntry);
+        } catch (ReplError e) {
+            System.out.println(e.getMessage());
+        }
     }
 
     public String get(String key) {

@@ -68,7 +68,7 @@ public class BaseHeartBeatTask implements Runnable {
 
     private void replication(Peer peer) {
         long start = System.currentTimeMillis(), end = start;
-        while (end - start < 100L) {
+        //while (end - start < 100L) {
 
             AentryParam aentryParam = new AentryParam();
             aentryParam.setTerm(node.getCurrentTerm());
@@ -83,7 +83,7 @@ public class BaseHeartBeatTask implements Runnable {
                     nextIndex,
                     node.getLastApplied()
             );
-            if (node.getLastApplied() >= nextIndex) {
+            if (node.getLastApplied() > nextIndex) {
                 for (long i = nextIndex; i <= node.getLastApplied(); i++) {
                     LogEntry l = logModule.read(i);
                     if (l != null) {
@@ -133,10 +133,13 @@ public class BaseHeartBeatTask implements Runnable {
                         node.setNodeStatusIndex(NodeStatus.FOLLOWER);
                         return;
                     } else {
+                        if (nextIndex > result.getLastApl()) {
+                            nextIndex = result.getLastApl()+1;
+                        }
                         if (nextIndex == 0) {
                             nextIndex = 1L;
                         }
-                        node.getNextIndexs().put(peer, nextIndex - 1);
+                        node.getNextIndexs().put(peer, nextIndex-1);
                         System.out.printf(
                                 "follower {%s} nextIndex not match, will reduce nextIndex and retry RPC append, nextIndex : [{%d}]",
                                 peer.getAddr(),
@@ -148,7 +151,7 @@ public class BaseHeartBeatTask implements Runnable {
                 return;
             }
             end = System.currentTimeMillis();
-        }
+        //}
     }
 
 }

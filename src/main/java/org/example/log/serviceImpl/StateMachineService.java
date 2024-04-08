@@ -1,5 +1,7 @@
 package org.example.log.serviceImpl;
 
+import java.util.Map;
+
 public class StateMachineService {
     InMemoryKVStateMachine machine = new InMemoryKVStateMachine();
 
@@ -12,12 +14,10 @@ public class StateMachineService {
         }
     }
 
-    boolean lockOperation(String name) {
-        return machine.lock(name);
+    public Map<String, String[]> getAll() {
+        return machine.getAll();
     }
-    void unlockOperation(String name) {
-        machine.unlock(name);
-    }
+
 
     public String[] get(String name) {
         return machine.get(name);

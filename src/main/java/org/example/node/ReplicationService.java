@@ -36,16 +36,9 @@ public class ReplicationService {
         this.rpcClient = rpcClient;
     }
 
-    public synchronized void addEntry(LogEntry logEntry) {
+    public synchronized void addEntryNotSave(LogEntry logEntry) throws ReplError {
         if (node.getNodeStatus() != NodeStatus.LEADER) {
-            System.out.println("I'm not a leader, leader is: " + peerSet.getLeader());
-            return;
-        }
-        node.lokMutex();
-        if (node.getNodeStatus() != NodeStatus.LEADER) {
-            System.out.println("I'm not a leader, leader is: " + peerSet.getLeader());
-            node.unlockMutex();
-            return;
+            throw new ReplError("I'm not a leader, leader is: " + peerSet.getLeader());
         }
         logEntry.setTerm(node.getCurrentTerm());
         logModule.write(logEntry);
@@ -56,7 +49,6 @@ public class ReplicationService {
         for (Peer peer : peerSet.getPeers()) {
             futureList.add(replication(peer, logEntry));
         }
-        node.unlockMutex();
         CountDownLatch latch = new CountDownLatch(futureList.size());
         List<Boolean> resultList = new CopyOnWriteArrayList<>();
         getRPCAppendResult(futureList, latch, resultList);
@@ -70,7 +62,48 @@ public class ReplicationService {
                 success.incrementAndGet();
             }
         }
+
+        if (success.get() >= peerSet.getPeers().size() / 2.0) {
+            node.setCommitIndex(logEntry.getIndex());
+            logModule.applyToStateMachine(logEntry.getIndex());
+            node.setLastApplied(node.getCommitIndex());
+        } else {
+            logModule.removeOnStartIndex(logEntry.getIndex());
+            System.out.println("The limit of half copies has not been reached");
+        }
+    }
+
+    public synchronized void addEntry(LogEntry logEntry) throws ReplError {
+        if (node.getNodeStatus() != NodeStatus.LEADER) {
+            throw new ReplError("I'm not a leader, leader is: " + peerSet.getLeader());
+        }
         node.lokMutex();
+        if (node.getNodeStatus() != NodeStatus.LEADER) {
+            node.unlockMutex();
+            throw new ReplError("I'm not a leader, leader is: " + peerSet.getLeader());
+        }
+        logEntry.setTerm(node.getCurrentTerm());
+        logModule.write(logEntry);
+        final AtomicInteger success = new AtomicInteger(0);
+
+        List<Future<Boolean>> futureList = new CopyOnWriteArrayList<>();
+        //  скидываем всем остальным
+        for (Peer peer : peerSet.getPeers()) {
+            futureList.add(replication(peer, logEntry));
+        }
+        CountDownLatch latch = new CountDownLatch(futureList.size());
+        List<Boolean> resultList = new CopyOnWriteArrayList<>();
+        getRPCAppendResult(futureList, latch, resultList);
+        try {
+            latch.await(4000, MILLISECONDS);
+        } catch (InterruptedException e) {
+        }
+
+        for (Boolean aBoolean : resultList) {
+            if (aBoolean) {
+                success.incrementAndGet();
+            }
+        }
         /*Если существует N, такое, что N> commitIndex, most matchIndex[I]≥N и log[N].
         Term == currentTerm: установить commitIndex = N*/
         List<Long> matchIndexList = new ArrayList<>(node.getMatchIndexs().values());
@@ -162,10 +195,13 @@ public class ReplicationService {
                                 node.setNodeStatusIndex(NodeStatus.FOLLOWER);
                                 return false;
                             } else {
+                                if (nextIndex > result.getLastApl()) {
+                                    nextIndex = result.getLastApl()+1;
+                                }
                                 if (nextIndex == 0) {
                                     nextIndex = 1L;
                                 }
-                                node.getNextIndexs().put(peer, nextIndex - 1);
+                                node.getNextIndexs().put(peer, nextIndex-1);
                                 System.out.printf(
                                         "follower {%s} nextIndex not match, will reduce nextIndex and retry RPC append, nextIndex : [{%d}]",
                                         peer.getAddr(),

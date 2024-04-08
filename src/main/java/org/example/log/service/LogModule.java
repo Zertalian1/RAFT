@@ -2,6 +2,8 @@ package org.example.log.service;
 
 import org.example.log.entity.LogEntry;
 
+import java.util.Map;
+
 public interface LogModule {
     void write(LogEntry logEntry);
 
@@ -11,8 +13,7 @@ public interface LogModule {
 
     String[] get(String name);
 
-    boolean lockOperation(String name);
-    void unlockOperation(String name);
+    Map<String, String[]> getAll();
 
     void removeOnStartIndex(Long startIndex);
 

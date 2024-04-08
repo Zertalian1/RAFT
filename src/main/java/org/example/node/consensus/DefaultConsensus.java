@@ -80,6 +80,7 @@ public class DefaultConsensus implements Consensus {
             node.lokMutex();
             System.out.println(param);
             result.setTerm(node.getCurrentTerm());
+            result.setLastApl(node.getLastApplied());
 
             //1
             if (param.getTerm() < node.getCurrentTerm()) {
@@ -100,8 +101,9 @@ public class DefaultConsensus implements Consensus {
                     logModule.applyToStateMachine(apply);
                     node.setLastApplied(apply);
                 } while (apply<logModule.getLastIndex());
-                node.unlockMutex();
-                return new AentryResult(node.getCurrentTerm(), true);
+                result.setLastApl(node.getLastApplied());
+                //node.unlockMutex();
+                //return new AentryResult(node.getCurrentTerm(), node.getLastApplied(), true);
             }
 
             /*Если подписчик не найдет в своем журнале запись, содержащую ту же позицию
@@ -124,10 +126,10 @@ public class DefaultConsensus implements Consensus {
                 }
             }
 
-            /*if (param.getLeaderCommit() > node.getLastApplied() && param.getEntries().length == 0) {
+            if (param.getLeaderCommit() > node.getLastApplied() && param.getEntries().length == 0) {
                 node.unlockMutex();
                 return result;
-            }*/
+            }
 
             // записываем операцию в журнал логов
             for (LogEntry entry : param.getEntries()) {
