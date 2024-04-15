@@ -1,14 +1,14 @@
 package org.example;
 
 import org.example.distributedBlocking.CASReplDict;
+import org.example.distributedBlocking.Client;
 import org.example.distributedBlocking.Lock;
 import org.example.distributedBlocking.TtlTask;
 import org.example.node.*;
 import org.example.thread.RaftThreadPool;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Scanner;
+import java.util.*;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class Main {
@@ -31,38 +31,16 @@ public class Main {
 
     public static void CasKVStorage(CASReplDict consumer, TtlTask task) {
         RaftThreadPool.scheduleWithFixedDelay(task, 300);
-        Lock lock = new Lock("test", 4000L, "");
+        Queue<Integer> queue = new ArrayDeque<>();
+        Semaphore mutex = new Semaphore(1);
+        Client client1 = new Client(queue, 0, consumer);
+        Client client2 = new Client(queue, 3, consumer);
+        RaftThreadPool.execute(client1);
+        RaftThreadPool.execute(client2);
         Scanner scanner = new Scanner(System.in);
         while (true) {
-            int command = scanner.nextInt();
-            switch (command) {
-                case 0 -> {
-                    String uid = consumer.unlock(lock);
-                    if (uid == null) {
-                        System.out.println("Не получилось отпустить мьютекс");
-                    } else {
-                        System.out.println("Мьютекс отпущен uid="+uid);
-                    }
-                }
-                case 1 -> {
-                    String uid = consumer.lock(lock);
-                    if (uid == null) {
-                        System.out.println("Не получилось залочить мьютекс");
-                    } else {
-                        System.out.println("Мьютекс залочен uid="+uid);
-                    }
-                    lock.setVersion(uid);
-                }
-                case 2 -> {
-                    String uid = consumer.renew(lock);
-                    if (uid == null) {
-                        System.out.println("Не получилось залочить мьютекс");
-                    } else {
-                        System.out.println("Мьютекс залочен uid="+uid);
-                    }
-                    lock.setVersion(uid);
-                }
-            }
+            Integer comand = scanner.nextInt();
+            queue.add(comand);
         }
     }
 
@@ -72,8 +50,8 @@ public class Main {
             peers.add("localhost:"+args[i]);
         }
         NodeConfig config = new NodeConfig(Integer.parseInt(args[0]), peers);
-        ReplDict consumer = new ReplDict();
-        //CASReplDict consumer = new CASReplDict();
+        //ReplDict consumer = new ReplDict();
+        CASReplDict consumer = new CASReplDict();
         DefaultNode node = new DefaultNode(config, consumer);
         node.init();
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -82,11 +60,11 @@ public class Main {
             } catch (Throwable ignored) {
             }
         }));
-        /*TtlTask task = new TtlTask();
+        TtlTask task = new TtlTask();
         task.setNode(node);
         task.setLogModule(node.getLogModule());
         task.setReplicationService(consumer.getReplicationService());
-        CasKVStorage(consumer, task);*/
-        defKVStorage(consumer);
+        CasKVStorage(consumer, task);
+        //defKVStorage(consumer);
     }
 }

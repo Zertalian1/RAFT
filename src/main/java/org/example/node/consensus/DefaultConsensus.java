@@ -78,7 +78,7 @@ public class DefaultConsensus implements Consensus {
             }
 
             node.lokMutex();
-            System.out.println(param);
+            //System.out.println(param);
             result.setTerm(node.getCurrentTerm());
             result.setLastApl(node.getLastApplied());
 

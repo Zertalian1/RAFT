@@ -77,12 +77,12 @@ public class BaseHeartBeatTask implements Runnable {
 
             Long nextIndex = node.getNextIndexs().get(peer);
             LinkedList<LogEntry> logEntries = new LinkedList<>();
-            System.out.printf(
+            /*System.out.printf(
                     "follower {%s} nextIndex : [{%d}], lastApplied{%d} \n",
                     peer.getAddr(),
                     nextIndex,
                     node.getLastApplied()
-            );
+            );*/
             if (node.getLastApplied() > nextIndex) {
                 for (long i = nextIndex; i <= node.getLastApplied(); i++) {
                     LogEntry l = logModule.read(i);

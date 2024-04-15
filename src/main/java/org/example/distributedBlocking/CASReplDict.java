@@ -79,7 +79,7 @@ public class CASReplDict extends SyncObjConsumer {
 
     public String lock(Lock lock) {
         String locked;
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0;; i++) {
             System.out.println("Attempt" + i);
             locked = simpleLock(lock);
             if (locked != null ) {
@@ -90,7 +90,6 @@ public class CASReplDict extends SyncObjConsumer {
             } catch (InterruptedException ignored) {
             }
         }
-        return null;
     }
 
     public String renew(Lock lock) {
